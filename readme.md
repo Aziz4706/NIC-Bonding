@@ -1,4 +1,4 @@
-# Linux'ta NIC Bonding: Yüksek Performans ve Yedeklilik Rehberi
+# Linux'ta NIC Bonding: Yüksek Performans ve Yedeklilik
 
 > Bu yazı, hem bireysel geliştiriciler hem de sistem yöneticileri için NIC bonding kavramının ne olduğunu, neden kullanılması gerektiğini ve Ubuntu 22.04 ortamında nasıl uygulandığını adım adım anlatan teknik bir rehberdir.
 
@@ -249,4 +249,4 @@ Sistemin ihtiyacına göre en uygun mod seçilmeli ve doğru şekilde test edilm
 
 Hazırlayan: **Aziz Ortanç**
 
-GitHub: [github.com/azizortanc](https://github.com/azizortanc)
+GitHub: [github.com/Aziz4706](https://github.com/Aziz4706)
