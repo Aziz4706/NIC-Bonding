@@ -226,7 +226,11 @@ while true; do
 done
 ```
 
+![image](https://github.com/user-attachments/assets/267940c6-68c7-41cf-b906-6bc9734a0440)
+
 ---
+
+
 
 ## 🌐 Sanal Ortamda (VMware) Ne Değişir?
 
