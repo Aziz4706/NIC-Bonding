@@ -1,4 +1,4 @@
-# Linux'ta NIC Bonding: Yüksek Performans ve Yedeklilik Rehberi
+# Linux'ta NIC Bonding: Yüksek Performans ve Yedeklilik
 
 > Bu yazı, hem bireysel geliştiriciler hem de sistem yöneticileri için NIC bonding kavramının ne olduğunu, neden kullanılması gerektiğini ve Ubuntu 22.04 ortamında nasıl uygulandığını adım adım anlatan teknik bir rehberdir.
 
@@ -28,7 +28,7 @@ Birden fazla NIC aynı anda veri taşıyabilir. Bu da **toplam bant genişliğin
 
 > Örnek: 2 adet 1 Gbps NIC → teorik 2 Gbps toplam bant genişliği (protokol overhead'leri dışında).
 
-### 🚧 Ne Zaman Kullanılır?
+### 🛠 Ne Zaman Kullanılır?
 
 * Web sunucuları
 * Proxy/DLP/SIEM gibi güvenlik cihazları
@@ -133,17 +133,29 @@ watch -n 1 cat /sys/class/net/ens38/statistics/tx_bytes
 ### 2. Alternatif olarak:
 
 ```bash
-ethtool -S ens33 | grep tx
+ip -s link show ens33
 ```
 
 ### 3. Toplu Takip Scripti:
 
 ```bash
 #!/bin/bash
+interfaces=("ens33" "ens37" "ens38")
+declare -A last
+for iface in "${interfaces[@]}"; do
+  last[$iface]=$(cat /sys/class/net/$iface/statistics/tx_bytes)
+done
+
 while true; do
   clear
-  for i in ens33 ens37 ens38; do
-    echo -n "$i: "; cat /sys/class/net/$i/statistics/tx_bytes
+  echo "🔍 NIC Bonding Trafik İzleme (tx_bytes/sn)"
+  echo "-------------------------------------------"
+  for iface in "${interfaces[@]}"; do
+    current=$(cat /sys/class/net/$iface/statistics/tx_bytes)
+    diff=$((current - last[$iface]))
+    kbps=$((diff / 1024))
+    printf "%-8s: %8d KB/s\n" "$iface" "$kbps"
+    last[$iface]=$current
   done
   sleep 1
 done
@@ -151,7 +163,7 @@ done
 
 ---
 
-## 🌎 Sanal Ortamda (VMware) Ne Değişir?
+## 🌐 Sanal Ortamda (VMware) Ne Değişir?
 
 * `mode=802.3ad` VMware Workstation gibi ortamlarda çalışmaz (switch desteği yok)
 * En uyumlu mod: `balance-rr`
@@ -170,8 +182,6 @@ Sistemin ihtiyacına göre en uygun mod seçilmeli ve doğru şekilde test edilm
 
 ---
 
-Hazırlandı ❤️
+Hazırlayan: **Aziz Ortanç**
 
-GitHub @azizortanc
-
----
+GitHub: [github.com/azizortanc](https://github.com/azizortanc)
