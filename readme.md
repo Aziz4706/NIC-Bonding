@@ -1,4 +1,4 @@
-# Linux'ta NIC Bonding: Yüksek Performans ve Yedeklilik
+# Linux'ta NIC Bonding: Yüksek Performans ve Yedeklilik Rehberi
 
 > Bu yazı, hem bireysel geliştiriciler hem de sistem yöneticileri için NIC bonding kavramının ne olduğunu, neden kullanılması gerektiğini ve Ubuntu 22.04 ortamında nasıl uygulandığını adım adım anlatan teknik bir rehberdir.
 
@@ -21,6 +21,21 @@ Diğer adlarıyla da bilinir:
 ### ✅ 1. Redundancy (Yedeklilik)
 
 Eğer bir NIC ya da switch portu arızalanırsa, diğer NIC anında devreye girerek **bağlantının kesilmesini engeller.**
+
+#### 🎯 Gerçek Dünya Senaryosu: NIC Arızasında Sıfır Kesinti
+
+> **Senaryo:**
+> Bir şirketin veri merkezinde çalışan kritik bir PostgreSQL veritabanı sunucusu var. Bu sunucuda iki fiziksel NIC yapılandırılmış: `ens33` ve `ens37`, ve bu arayüzler `bond0` altında `mode=active-backup` ile bağlanmış durumda.
+
+> **Olay:**
+> Gece saatlerinde veri merkezinde bir switch portu fiziksel arıza nedeniyle devre dışı kaldı. Bu port `ens33` ile ilişkiliydi — yani sunucunun ana bağlantısıydı.
+
+> **Sonuç:**
+> `bond0` yapılandırması sayesinde sistem bu durumu 100ms içinde fark etti ve trafiği otomatik olarak `ens37` üzerine aktardı. Sunucuda hiçbir servis kesilmedi, veritabanı bağlantılarında hiçbir kopma yaşanmadı ve sistem yöneticisi sabah geldiğinde sadece syslog üzerinde “Link down/up” uyarılarını gördü.
+
+> **Kazanç:**
+> Sıfır kesinti, sıfır müşteri şikayeti, planlanmamış bakım gereği doğmadan problem sessizce çözüldü.
+> Eğer bir NIC ya da switch portu arızalanırsa, diğer NIC anında devreye girerek **bağlantının kesilmesini engeller.**
 
 ### ⚡ 2. Performans / Yük Dengeleme
 
@@ -66,7 +81,41 @@ sudo apt install ifenslave -y
 sudo modprobe bonding
 ```
 
-### Netplan Yapılandırması
+### Netplan Yapılandırması (mode: active-backup)
+
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ens33: {}
+    ens37: {}
+  bonds:
+    bond0:
+      interfaces:
+        - ens33
+        - ens37
+      addresses:
+        - 192.168.1.200/24
+      routes:
+        - to: default
+          via: 192.168.1.1
+      nameservers:
+        addresses: [8.8.8.8, 1.1.1.1]
+      parameters:
+        mode: active-backup
+        primary: ens33
+        mii-monitor-interval: 100
+```
+
+> Bu yapılandırmada yalnızca `ens33` aktif olur. Eğer bağlantı koparsa, sistem otomatik olarak `ens37` arayüzünü devreye alır.
+
+```bash
+sudo netplan apply
+```
+---
+
+### Netplan Yapılandırması (mode: balance-rr)
 
 ```yaml
 network:
@@ -99,7 +148,23 @@ network:
 ```bash
 sudo netplan apply
 ```
+### 📌 Bu Konfigürasyonu Yaptıktan Sonra Ne Olur?
 
+- `ens33`, `ens37`, ve `ens38` fiziksel ağ arayüzleri **tek bir sanal arayüz olan `bond0`** altında birleşir.
+- Sistem dış dünyayla **sadece `bond0` üzerinden** haberleşir.
+- Trafik **round-robin** yöntemiyle sırasıyla her fiziksel arayüze dağıtılır:
+  - İlk paket `ens33`'ten
+  - İkinci paket `ens37`'den
+  - Üçüncü paket `ens38`'den gönderilir ve döngü tekrar eder.
+- Böylece aynı anda birden fazla bağlantıda:
+  - **Toplam bant genişliği artar** (örneğin 3 x 1Gbps → teorik 3Gbps)
+  - **Yük paylaşımı** oluşur
+- Herhangi bir arayüz koparsa (kablo çıkarsa, NIC arızalanırsa):
+  - Diğerleri otomatik olarak devreye girer
+  - Trafik kesilmeden akmaya devam eder
+- Bu modun çalışması için switch desteği gerekmez; sanal ortamlar (VMware, VirtualBox) ve ev tipi ağlarda **sorunsuz çalışır**.
+
+> ⚠️ Uyarı: `balance-rr` modunda bazı **TCP bağlantılarında paket sıralama problemi** yaşanabilir. Bu nedenle test ortamları ve UDP ağırlıklı iş yükleri için daha uygundur.
 ---
 
 ## 📈 Performans Testi: `iperf3` ile
